@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily Journal</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef1f5;--surface:#fff;--ink:#1c2230;--muted:#5d6779;--line:#d5dbe5;--accent:#2f4b9a;
+  --r-2:#b5413a;--r-1:#d98a3d;--r0:#8b94a3;--r1:#4f9a7a;--r2:#2c6fb7;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12161f;--surface:#1b212d;--ink:#e8ecf3;--muted:#9aa5b8;--line:#2d3647;--accent:#8fa8f0;
+  --r-2:#e0786f;--r-1:#e9a45f;--r0:#a3abb9;--r1:#7cc3a3;--r2:#6fb0ee}}
+:root[data-theme="dark"]{
+  --bg:#12161f;--surface:#1b212d;--ink:#e8ecf3;--muted:#9aa5b8;--line:#2d3647;--accent:#8fa8f0;
+  --r-2:#e0786f;--r-1:#e9a45f;--r0:#a3abb9;--r1:#7cc3a3;--r2:#6fb0ee}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Instrument Sans",system-ui,sans-serif}
+main{max-width:640px;margin:0 auto;padding:32px 20px 64px}
+h1{font:600 2rem/1.15 "Newsreader",Georgia,serif;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 28px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+label,.q{display:block;font:600 1.05rem "Newsreader",Georgia,serif;margin:0 0 4px}
+.hint{color:var(--muted);font-size:.88rem;margin:0 0 10px}
+.field{margin-bottom:24px}
+input[type=date]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.scale button{font:inherit;color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:12px 4px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:background .15s,border-color .15s,transform .1s}
+.scale button:active{transform:scale(.97)}
+.scale .n{font:600 1.6rem/1 "Newsreader",Georgia,serif}
+.scale .t{font-size:.72rem;color:var(--muted);text-align:center;line-height:1.2}
+.scale button[aria-checked=true]{background:var(--c);border-color:var(--c);color:#fff}
+.scale button[aria-checked=true] .t{color:#fff}
+.scale button:hover{border-color:var(--c)}
+textarea{width:100%;min-height:130px;resize:vertical;font:1.05rem/1.6 "Newsreader",Georgia,serif;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.primary{font:600 1rem "Instrument Sans",sans-serif;background:var(--accent);color:var(--bg);border:0;border-radius:10px;padding:12px 22px;cursor:pointer}
+.ghost{font:inherit;background:none;border:0;color:var(--muted);cursor:pointer;text-decoration:underline;padding:4px}
+#status{color:var(--muted);font-size:.9rem}
+h2{font:600 1.35rem "Newsreader",Georgia,serif;margin:40px 0 12px}
+.strip{display:flex;align-items:flex-end;gap:4px;height:64px;margin-bottom:18px;overflow-x:auto;padding-bottom:2px}
+.strip i{flex:0 0 14px;border-radius:3px 3px 0 0;background:var(--c)}
+.entry{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.entry .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.entry .d{font-weight:600}
+.entry .badge{font:600 1.1rem "Newsreader",Georgia,serif;color:var(--c)}
+.entry h3{font-size:.85rem;color:var(--muted);margin:10px 0 2px;font-weight:600}
+.entry p{margin:0;font-family:"Newsreader",Georgia,serif;font-size:1rem;white-space:pre-wrap}
+.empty{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Daily journal</h1>
+  <p class="sub">Rate your day, say what happened, and note what you take from it.</p>
+
+  <section class="card" aria-label="Today's entry">
+    <div class="field">
+      <label for="date">Date</label>
+      <input type="date" id="date">
+    </div>
+
+    <div class="field">
+      <span class="q" id="rq">How was your day?</span>
+      <p class="hint">Pick one rating.</p>
+      <div class="scale" role="radiogroup" aria-labelledby="rq" id="scale"></div>
+    </div>
+
+    <div class="field">
+      <label for="recount">What happened?</label>
+      <p class="hint">Recount the day in your own words.</p>
+      <textarea id="recount"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="reflection">Reflection</label>
+      <p class="hint">What stood out, what did you learn, what would you change?</p>
+      <textarea id="reflection"></textarea>
+    </div>
+
+    <div class="row">
+      <button class="primary" id="save">Save entry</button>
+      <button class="ghost" id="del" hidden>Delete entry</button>
+      <span id="status" role="status"></span>
+    </div>
+  </section>
+
+  <h2>Past entries</h2>
+  <div class="strip" id="strip" aria-hidden="true"></div>
+  <div id="list"></div>
+
+  <h2>Back up your journal</h2>
+  <section class="card" aria-label="Backup">
+    <p class="hint">Entries are stored in this browser only. Export a copy now and then, and import it to restore or move to another device.</p>
+    <div class="row">
+      <button class="primary" id="exportJson">Export (JSON)</button>
+      <button class="ghost" id="exportCsv">Export (CSV)</button>
+      <button class="ghost" id="importBtn">Import backup</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <p id="backupStatus" class="hint" role="status" style="margin:10px 0 0"></p>
+  </section>
+</main>
+
+<script>
+const LEVELS=[
+  {v:2,t:"Great, standout",c:"var(--r2)"},
+  {v:1,t:"Good, positive",c:"var(--r1)"},
+  {v:0,t:"Average, meh",c:"var(--r0)"},
+  {v:-1,t:"Bad, net negative",c:"var(--r-1)"},
+  {v:-2,t:"Terrible",c:"var(--r-2)"}
+];
+const KEY="daily-journal-v1";
+let entries={},rating=null;
+const $=id=>document.getElementById(id);
+const fmt=v=>v>0?"+"+v:String(v);
+const lvl=v=>LEVELS.find(l=>l.v===v);
+
+function load(){try{entries=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){entries={}}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(entries));return true}catch(e){return false}}
+function today(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
+function nice(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
+
+function buildScale(){
+  const box=$("scale");box.innerHTML="";
+  LEVELS.forEach(l=>{
+    const b=document.createElement("button");
+    b.type="button";b.setAttribute("role","radio");b.style.setProperty("--c",l.c);
+    b.dataset.v=l.v;
+    b.innerHTML='<span class="n">'+fmt(l.v)+'</span><span class="t">'+l.t+'</span>';
+    b.onclick=()=>{rating=l.v;paintScale()};
+    box.appendChild(b);
+  });
+}
+function paintScale(){
+  document.querySelectorAll("#scale button").forEach(b=>b.setAttribute("aria-checked",String(Number(b.dataset.v)===rating)));
+}
+function fillForm(){
+  const e=entries[$("date").value];
+  rating=e?e.rating:null;
+  $("recount").value=e?e.recount:"";
+  $("reflection").value=e?e.reflection:"";
+  $("del").hidden=!e;
+  $("save").textContent=e?"Update entry":"Save entry";
+  paintScale();
+}
+function render(){
+  const dates=Object.keys(entries).sort().reverse();
+  const list=$("list"),strip=$("strip");
+  list.innerHTML="";strip.innerHTML="";
+  if(!dates.length){list.innerHTML='<p class="empty">No entries yet. Save your first one above.</p>';return}
+  dates.slice().reverse().slice(-40).forEach(d=>{
+    const l=lvl(entries[d].rating);const i=document.createElement("i");
+    i.style.setProperty("--c",l.c);i.style.height=(((entries[d].rating+2)/4)*84+16)+"%";strip.appendChild(i);
+  });
+  dates.forEach(d=>{
+    const e=entries[d],l=lvl(e.rating);
+    const el=document.createElement("article");el.className="entry";el.style.setProperty("--c",l.c);
+    const top=document.createElement("div");top.className="top";
+    const dd=document.createElement("button");dd.className="ghost d";dd.style.textDecoration="none";dd.style.color="var(--ink)";dd.textContent=nice(d);
+    dd.onclick=()=>{$("date").value=d;fillForm();window.scrollTo({top:0,behavior:"smooth"})};
+    const bg=document.createElement("span");bg.className="badge";bg.textContent=fmt(e.rating)+" "+l.t;
+    top.append(dd,bg);el.appendChild(top);
+    [["What happened",e.recount],["Reflection",e.reflection]].forEach(([h,t])=>{
+      if(!t)return;
+      const hh=document.createElement("h3");hh.textContent=h;
+      const p=document.createElement("p");p.textContent=t;
+      el.append(hh,p);
+    });
+    list.appendChild(el);
+  });
+}
+function say(m){$("status").textContent=m;setTimeout(()=>{if($("status").textContent===m)$("status").textContent=""},2500)}
+
+$("save").onclick=()=>{
+  if(rating===null){say("Pick a rating first.");return}
+  const d=$("date").value;if(!d){say("Choose a date.");return}
+  entries[d]={rating,recount:$("recount").value.trim(),reflection:$("reflection").value.trim()};
+  const ok=persist();render();fillForm();
+  say(ok?"Saved.":"Saved for this session only; browser storage is unavailable.");
+};
+$("del").onclick=()=>{
+  const d=$("date").value;if(!entries[d])return;
+  if(!confirm("Delete the entry for "+nice(d)+"?"))return;
+  delete entries[d];persist();render();fillForm();say("Deleted.");
+};
+$("date").onchange=fillForm;
+
+function bsay(m){$("backupStatus").textContent=m}
+function download(name,text,type){
+  const url=URL.createObjectURL(new Blob([text],{type}));
+  const a=document.createElement("a");a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+$("exportJson").onclick=()=>{
+  if(!Object.keys(entries).length){bsay("Nothing to export yet.");return}
+  download("daily-journal-"+today()+".json",JSON.stringify({app:"daily-journal",version:1,entries},null,2),"application/json");
+  bsay("Exported "+Object.keys(entries).length+" entries.");
+};
+$("exportCsv").onclick=()=>{
+  const ds=Object.keys(entries).sort();
+  if(!ds.length){bsay("Nothing to export yet.");return}
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  const rows=[["date","rating","what_happened","reflection"].join(",")];
+  ds.forEach(d=>{const e=entries[d];rows.push([d,e.rating,q(e.recount),q(e.reflection)].join(","))});
+  download("daily-journal-"+today()+".csv","\ufeff"+rows.join("\r\n"),"text/csv");
+  bsay("Exported "+ds.length+" entries.");
+};
+$("importBtn").onclick=()=>$("importFile").click();
+$("importFile").onchange=ev=>{
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const data=JSON.parse(r.result);
+      const inc=data&&data.entries?data.entries:data;
+      let n=0;
+      Object.keys(inc).forEach(d=>{
+        const e=inc[d];
+        if(/^\d{4}-\d{2}-\d{2}$/.test(d)&&e&&[-2,-1,0,1,2].includes(e.rating)){
+          entries[d]={rating:e.rating,recount:String(e.recount||""),reflection:String(e.reflection||"")};n++;
+        }
+      });
+      persist();render();fillForm();
+      bsay(n?"Imported "+n+" entries. Matching dates were overwritten.":"No valid entries found in that file.");
+    }catch(err){bsay("That file couldn't be read. Use a JSON file exported from this journal.")}
+    ev.target.value="";
+  };
+  r.readAsText(f);
+};
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+
+load();buildScale();$("date").value=today();fillForm();render();
+</script>
+</body>
+</html>
