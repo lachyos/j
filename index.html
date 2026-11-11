@@ -27,7 +27,8 @@ h1{font:600 2rem/1.15 "Newsreader",Georgia,serif;margin:0 0 4px}
 label,.q{display:block;font:600 1.05rem "Newsreader",Georgia,serif;margin:0 0 4px}
 .hint{color:var(--muted);font-size:.88rem;margin:0 0 10px}
 .field{margin-bottom:24px}
-input[type=date]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+input[type=text],input[type=password]{width:100%}
+input[type=date],input[type=text],input[type=password]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 .scale{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .scale button{font:inherit;color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:12px 4px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:background .15s,border-color .15s,transform .1s}
 .scale button:active{transform:scale(.97)}
@@ -106,6 +107,24 @@ h2{font:600 1.35rem "Newsreader",Georgia,serif;margin:40px 0 12px}
     </div>
     <p id="backupStatus" class="hint" role="status" style="margin:10px 0 0"></p>
   </section>
+
+  <h2>Sync with GitHub</h2>
+  <section class="card" aria-label="GitHub sync">
+    <p class="hint">Saves your entries to a file called journal.json in a GitHub repository, so they show up on any computer. Use a separate <strong>private</strong> repository for this, because anything in a public repository can be read by anyone. Create a fine-grained access token limited to that one repository with Contents set to read and write, then paste it here. The token is kept only in this browser, so enter it once on each computer.</p>
+    <div class="field">
+      <label for="gh-repo">Repository</label>
+      <input type="text" id="gh-repo" placeholder="your-username/journal-data" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="gh-token">Access token</label>
+      <input type="password" id="gh-token" autocomplete="off">
+    </div>
+    <div class="row">
+      <button class="primary" id="ghSave">Connect and sync</button>
+      <button class="ghost" id="ghClear">Disconnect</button>
+    </div>
+    <p id="syncStatus" class="hint" role="status" style="margin:10px 0 0"></p>
+  </section>
 </main>
 
 <script>
@@ -121,6 +140,8 @@ let entries={},rating=null;
 const $=id=>document.getElementById(id);
 const fmt=v=>v>0?"+"+v:String(v);
 const lvl=v=>LEVELS.find(l=>l.v===v);
+const live=d=>entries[d]&&!entries[d].deleted?entries[d]:null;
+const liveDates=()=>Object.keys(entries).filter(live);
 
 function load(){try{entries=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){entries={}}}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(entries));return true}catch(e){return false}}
@@ -129,7 +150,7 @@ function nice(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)
 
 function buildScale(){
   const box=$("scale");box.innerHTML="";
-  LEVELS.forEach(l=>{
+  LEVELS.slice().reverse().forEach(l=>{
     const b=document.createElement("button");
     b.type="button";b.setAttribute("role","radio");b.style.setProperty("--c",l.c);
     b.dataset.v=l.v;
@@ -142,7 +163,7 @@ function paintScale(){
   document.querySelectorAll("#scale button").forEach(b=>b.setAttribute("aria-checked",String(Number(b.dataset.v)===rating)));
 }
 function fillForm(){
-  const e=entries[$("date").value];
+  const e=live($("date").value);
   rating=e?e.rating:null;
   $("recount").value=e?e.recount:"";
   $("reflection").value=e?e.reflection:"";
@@ -151,7 +172,7 @@ function fillForm(){
   paintScale();
 }
 function render(){
-  const dates=Object.keys(entries).sort().reverse();
+  const dates=liveDates().sort().reverse();
   const list=$("list"),strip=$("strip");
   list.innerHTML="";strip.innerHTML="";
   if(!dates.length){list.innerHTML='<p class="empty">No entries yet. Save your first one above.</p>';return}
@@ -181,14 +202,15 @@ function say(m){$("status").textContent=m;setTimeout(()=>{if($("status").textCon
 $("save").onclick=()=>{
   if(rating===null){say("Pick a rating first.");return}
   const d=$("date").value;if(!d){say("Choose a date.");return}
-  entries[d]={rating,recount:$("recount").value.trim(),reflection:$("reflection").value.trim()};
+  entries[d]={rating,recount:$("recount").value.trim(),reflection:$("reflection").value.trim(),updated:Date.now()};
   const ok=persist();render();fillForm();
   say(ok?"Saved.":"Saved for this session only; browser storage is unavailable.");
+  sync.push();
 };
 $("del").onclick=()=>{
-  const d=$("date").value;if(!entries[d])return;
+  const d=$("date").value;if(!live(d))return;
   if(!confirm("Delete the entry for "+nice(d)+"?"))return;
-  delete entries[d];persist();render();fillForm();say("Deleted.");
+  entries[d]={deleted:true,updated:Date.now()};persist();render();fillForm();say("Deleted.");sync.push();
 };
 $("date").onchange=fillForm;
 
@@ -200,12 +222,13 @@ function download(name,text,type){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 $("exportJson").onclick=()=>{
-  if(!Object.keys(entries).length){bsay("Nothing to export yet.");return}
-  download("daily-journal-"+today()+".json",JSON.stringify({app:"daily-journal",version:1,entries},null,2),"application/json");
-  bsay("Exported "+Object.keys(entries).length+" entries.");
+  const out={};liveDates().forEach(d=>out[d]=entries[d]);
+  if(!liveDates().length){bsay("Nothing to export yet.");return}
+  download("daily-journal-"+today()+".json",JSON.stringify({app:"daily-journal",version:2,entries:out},null,2),"application/json");
+  bsay("Exported "+liveDates().length+" entries.");
 };
 $("exportCsv").onclick=()=>{
-  const ds=Object.keys(entries).sort();
+  const ds=liveDates().sort();
   if(!ds.length){bsay("Nothing to export yet.");return}
   const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
   const rows=[["date","rating","what_happened","reflection"].join(",")];
@@ -225,19 +248,76 @@ $("importFile").onchange=ev=>{
       Object.keys(inc).forEach(d=>{
         const e=inc[d];
         if(/^\d{4}-\d{2}-\d{2}$/.test(d)&&e&&[-2,-1,0,1,2].includes(e.rating)){
-          entries[d]={rating:e.rating,recount:String(e.recount||""),reflection:String(e.reflection||"")};n++;
+          entries[d]={rating:e.rating,recount:String(e.recount||""),reflection:String(e.reflection||""),updated:Date.now()};n++;
         }
       });
       persist();render();fillForm();
-      bsay(n?"Imported "+n+" entries. Matching dates were overwritten.":"No valid entries found in that file.");
+      if(n)sync.push();bsay(n?"Imported "+n+" entries. Matching dates were overwritten.":"No valid entries found in that file.");
     }catch(err){bsay("That file couldn't be read. Use a JSON file exported from this journal.")}
     ev.target.value="";
   };
   r.readAsText(f);
 };
+const sync={
+  sha:null,
+  cfg(){try{return JSON.parse(localStorage.getItem("daily-journal-gh"))}catch(e){return null}},
+  st(m){$("syncStatus").textContent=m},
+  hdr(c){return{Authorization:"Bearer "+c.token,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"}},
+  url(c){return "https://api.github.com/repos/"+c.repo+"/contents/journal.json"},
+  fail(res){return new Error(res.status===401?"GitHub rejected the token.":res.status===403?"The token doesn't have permission (needs Contents read and write).":res.status===404?"Repository not found, or the token can't access it.":"GitHub error "+res.status+".")},
+  merge(remote){
+    let ch=false;
+    Object.keys(remote).forEach(d=>{const r=remote[d],l=entries[d];if(r&&(!l||(r.updated||0)>(l.updated||0))){entries[d]=r;ch=true}});
+    return ch;
+  },
+  async fetchRemote(c){
+    const res=await fetch(this.url(c),{headers:this.hdr(c),cache:"no-store"});
+    if(res.status===404){this.sha=null;return{}}
+    if(!res.ok)throw this.fail(res);
+    const j=await res.json();this.sha=j.sha;
+    const bin=atob(j.content.replace(/\n/g,""));
+    const txt=new TextDecoder().decode(Uint8Array.from(bin,x=>x.charCodeAt(0)));
+    return JSON.parse(txt).entries||{};
+  },
+  b64(str){const b=new TextEncoder().encode(str);let o="";for(let i=0;i<b.length;i+=8192)o+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(o)},
+  async pull(){
+    const c=this.cfg();if(!c)return;
+    try{this.st("Syncing…");if(this.merge(await this.fetchRemote(c))){persist();render();fillForm()}this.st("Synced at "+new Date().toLocaleTimeString()+".")}
+    catch(e){this.st("Sync failed: "+e.message+" Entries are still saved in this browser.")}
+  },
+  async push(retry){
+    const c=this.cfg();if(!c)return;
+    try{
+      this.st("Syncing…");
+      if(this.merge(await this.fetchRemote(c))){persist();render();fillForm()}
+      const body={message:"Update journal",content:this.b64(JSON.stringify({app:"daily-journal",version:2,entries},null,2))};
+      if(this.sha)body.sha=this.sha;
+      const res=await fetch(this.url(c),{method:"PUT",headers:{...this.hdr(c),"Content-Type":"application/json"},body:JSON.stringify(body)});
+      if((res.status===409||res.status===422)&&!retry)return this.push(true);
+      if(!res.ok)throw this.fail(res);
+      this.sha=(await res.json()).content.sha;
+      this.st("Synced at "+new Date().toLocaleTimeString()+".");
+    }catch(e){this.st("Sync failed: "+e.message+" Entries are still saved in this browser.")}
+  }
+};
+$("ghSave").onclick=()=>{
+  const old=sync.cfg();
+  const repo=$("gh-repo").value.trim().replace(/^https?:\/\/github\.com\//,"").replace(/\.git$/,"").replace(/\/$/,"");
+  const token=$("gh-token").value.trim()||(old&&old.token)||"";
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)||!token){sync.st("Enter the repository as owner/name and paste a token.");return}
+  try{localStorage.setItem("daily-journal-gh",JSON.stringify({repo,token}))}catch(e){sync.st("Browser storage is unavailable, so the connection can't be saved.");return}
+  $("gh-token").value="";$("gh-token").placeholder="Token saved on this device";
+  sync.push();
+};
+$("ghClear").onclick=()=>{
+  try{localStorage.removeItem("daily-journal-gh")}catch(e){}
+  $("gh-repo").value="";$("gh-token").value="";$("gh-token").placeholder="";
+  sync.st("Disconnected. Entries stay in this browser.");
+};
+{const c0=sync.cfg();if(c0){$("gh-repo").value=c0.repo;$("gh-token").placeholder="Token saved on this device"}}
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 
-load();buildScale();$("date").value=today();fillForm();render();
+load();buildScale();$("date").value=today();fillForm();render();sync.pull();
 </script>
 </body>
 </html>
